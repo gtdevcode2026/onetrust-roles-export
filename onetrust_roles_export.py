@@ -10,10 +10,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# --- Manual fallbacks: used only if the ONETRUST_* variables are not set in .env or the environment ---
-FALLBACK_DOMAIN = "yourtenant.my.onetrust.com"
-FALLBACK_CLIENT_ID = "paste-your-client-id-here"
-FALLBACK_CLIENT_SECRET = "paste-your-client-secret-here"
+# ============================ CONFIGURATION: fill these in ============================
+ONETRUST_DOMAIN = "yourtenant.my.onetrust.com"      # host you log in to, without https://
+ONETRUST_CLIENT_ID = "paste-your-client-id-here"
+ONETRUST_CLIENT_SECRET = "paste-your-client-secret-here"
+# =======================================================================================
 
 REQUEST_DELAY = 0.5   # seconds between role detail requests
 PAGE_SIZE = 100       # roles per page when listing
@@ -24,23 +25,9 @@ RETRY_STATUSES = {429, 500, 502, 503, 504}
 OUTPUT_FILE = "onetrust_roles_schema.json"
 
 
-def load_env_file(path):
-    """Minimal .env reader: KEY=VALUE lines, # comments, optional quotes. Real env vars take priority."""
-    if not os.path.isfile(path):
-        return
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
-
-
-load_env_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
-DOMAIN = (os.getenv("ONETRUST_DOMAIN") or FALLBACK_DOMAIN).replace("https://", "").strip("/")
-CLIENT_ID = os.getenv("ONETRUST_CLIENT_ID") or FALLBACK_CLIENT_ID
-CLIENT_SECRET = os.getenv("ONETRUST_CLIENT_SECRET") or FALLBACK_CLIENT_SECRET
+DOMAIN = ONETRUST_DOMAIN.replace("https://", "").strip("/")
+CLIENT_ID = ONETRUST_CLIENT_ID
+CLIENT_SECRET = ONETRUST_CLIENT_SECRET
 TOKEN_URL = f"https://{DOMAIN}/api/access/v1/oauth/token"
 BASE_URL = f"https://{DOMAIN}/api/v2/useraccesslevels"
 HEADERS = {"Accept": "application/json"}  # Authorization is added once the token is fetched
@@ -113,9 +100,9 @@ def fetch_role_list():
 
 
 def main():
-    if FALLBACK_DOMAIN == DOMAIN or FALLBACK_CLIENT_ID == CLIENT_ID or FALLBACK_CLIENT_SECRET == CLIENT_SECRET:
-        sys.exit("[CONFIG] Set ONETRUST_DOMAIN, ONETRUST_CLIENT_ID and ONETRUST_CLIENT_SECRET in .env "
-                 "or fill in the fallbacks at the top of the script.")
+    if "yourtenant" in DOMAIN or CLIENT_ID.startswith("paste-") or CLIENT_SECRET.startswith("paste-"):
+        sys.exit("[CONFIG] Fill in ONETRUST_DOMAIN, ONETRUST_CLIENT_ID and ONETRUST_CLIENT_SECRET "
+                 "in the CONFIGURATION block at the top of the script.")
 
     print("Requesting access token ...")
     token = get_token()

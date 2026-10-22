@@ -24,15 +24,14 @@ The script exchanges the Client ID and Secret for a temporary access token (OAut
    git clone <this-repo-url>
    cd onetrust-roles-export
    ```
-2. Copy `.env.example` to `.env` in the same folder as the script and fill it in:
+2. Open `onetrust_roles_export.py` and fill in the CONFIGURATION block at the top. All settings live in the script; there's no separate config file.
+   ```python
+   ONETRUST_DOMAIN = "yourtenant.my.onetrust.com"      # host you log in to, without https://
+   ONETRUST_CLIENT_ID = "paste-your-client-id-here"
+   ONETRUST_CLIENT_SECRET = "paste-your-client-secret-here"
    ```
-   ONETRUST_DOMAIN=yourtenant.my.onetrust.com
-   ONETRUST_CLIENT_ID=your-client-id
-   ONETRUST_CLIENT_SECRET=your-client-secret
-   ```
-   You can also fill in `FALLBACK_DOMAIN`, `FALLBACK_CLIENT_ID` and `FALLBACK_CLIENT_SECRET` at the top of `onetrust_roles_export.py` instead. Values in `.env` or in your system environment take priority over the fallbacks.
 
-   `.env` is in `.gitignore`, so your credentials won't be committed. Don't put real credentials in the fallbacks if you plan to commit the script.
+   > **Warning:** once your real Client Secret is in the script, don't commit or push it. Anyone who can read the repo or its history could use the secret, and deleting it later doesn't remove it from git history. Keep your filled-in copy local.
 
 ## Run
 
@@ -80,7 +79,7 @@ These constants are at the top of the script:
 
 ## Troubleshooting
 
-- **`[CONFIG] Set ONETRUST_DOMAIN ...`:** the domain, client ID or client secret wasn't found. Check that the file is named exactly `.env` (not `.env.txt`) and is in the same folder as the script.
+- **`[CONFIG] Fill in ONETRUST_DOMAIN ...`:** one of the three values in the CONFIGURATION block still has its placeholder. Replace all three and save the file.
 - **`[AUTH ERROR] ... HTTP 400` or `401`:** the Client ID or Secret is wrong, or the credential was revoked or expired. The response text from OneTrust is printed after the error. Also check the domain is the one you log in to (for example `app-eu.onetrust.com` for EU tenants).
 - **Role requests return HTTP 403:** login worked, but the credential lacks permission to read user access levels. Ask your OneTrust admin to grant it.
 - **`python` opens the Microsoft Store (Windows):** Python isn't installed. Install it from python.org with "Add python.exe to PATH" ticked, or use the uv command above.

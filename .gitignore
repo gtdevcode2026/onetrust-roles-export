@@ -1,5 +1,3 @@
-# credentials
-.env
 # exported tenant data
 onetrust_roles_schema.json
 __pycache__/
