@@ -13,7 +13,9 @@ The script runs on your own computer and calls the OneTrust web API over HTTPS. 
 ## What you need from OneTrust
 
 1. **Your tenant domain:** the host in your browser's address bar when logged in, for example `app.onetrust.com`, `app-eu.onetrust.com` or `yourcompany.my.onetrust.com`. Leave out `https://`.
-2. **An API key:** a OneTrust admin creates it in the web app, usually under **Settings → Access Management → Client Credentials** (sometimes labelled API Keys). It needs read access to user access levels.
+2. **A Client ID and Client Secret:** a OneTrust admin creates these in the web app, usually under **Settings → Access Management → Client Credentials**. The credential needs read access to user access levels. The secret is shown only once when it's created, so save it then.
+
+The script exchanges the Client ID and Secret for a temporary access token (OAuth 2.0 client credentials, via `POST /api/access/v1/oauth/token`) and sends it as `Authorization: Bearer <token>` on every API call.
 
 ## Setup
 
@@ -25,11 +27,12 @@ The script runs on your own computer and calls the OneTrust web API over HTTPS. 
 2. Copy `.env.example` to `.env` in the same folder as the script and fill it in:
    ```
    ONETRUST_DOMAIN=yourtenant.my.onetrust.com
-   ONETRUST_API_KEY=your-api-key
+   ONETRUST_CLIENT_ID=your-client-id
+   ONETRUST_CLIENT_SECRET=your-client-secret
    ```
-   You can also fill in `FALLBACK_DOMAIN` and `FALLBACK_API_KEY` at the top of `onetrust_roles_export.py` instead. Values in `.env` or in your system environment take priority over the fallbacks.
+   You can also fill in `FALLBACK_DOMAIN`, `FALLBACK_CLIENT_ID` and `FALLBACK_CLIENT_SECRET` at the top of `onetrust_roles_export.py` instead. Values in `.env` or in your system environment take priority over the fallbacks.
 
-   `.env` is in `.gitignore`, so your key won't be committed.
+   `.env` is in `.gitignore`, so your credentials won't be committed. Don't put real credentials in the fallbacks if you plan to commit the script.
 
 ## Run
 
@@ -45,6 +48,7 @@ uv run --no-project python onetrust_roles_export.py
 
 Example output:
 ```
+Requesting access token ...
 Fetching role list from https://yourtenant.my.onetrust.com/api/v2/useraccesslevels ...
 Found 3 role(s).
 
@@ -76,7 +80,7 @@ These constants are at the top of the script:
 
 ## Troubleshooting
 
-- **`[CONFIG] Set ONETRUST_DOMAIN ...`:** the domain or key wasn't found. Check that the file is named exactly `.env` (not `.env.txt`) and is in the same folder as the script.
-- **Every request returns HTTP 401:** the script sends the key in an `ApiKey` header. Many OneTrust tenants use OAuth instead: a Client ID and Client Secret are exchanged for a token sent as `Authorization: Bearer <token>`. If your tenant works that way, change the `HEADERS` line in the script to use a bearer token.
-- **HTTP 403:** the key works but lacks permission to read user access levels. Ask your OneTrust admin to grant it.
+- **`[CONFIG] Set ONETRUST_DOMAIN ...`:** the domain, client ID or client secret wasn't found. Check that the file is named exactly `.env` (not `.env.txt`) and is in the same folder as the script.
+- **`[AUTH ERROR] ... HTTP 400` or `401`:** the Client ID or Secret is wrong, or the credential was revoked or expired. The response text from OneTrust is printed after the error. Also check the domain is the one you log in to (for example `app-eu.onetrust.com` for EU tenants).
+- **Role requests return HTTP 403:** login worked, but the credential lacks permission to read user access levels. Ask your OneTrust admin to grant it.
 - **`python` opens the Microsoft Store (Windows):** Python isn't installed. Install it from python.org with "Add python.exe to PATH" ticked, or use the uv command above.

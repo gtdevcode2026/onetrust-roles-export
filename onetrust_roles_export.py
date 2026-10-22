@@ -10,9 +10,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# --- Manual fallbacks: used only if ONETRUST_DOMAIN / ONETRUST_API_KEY are not set in .env or the environment ---
+# --- Manual fallbacks: used only if the ONETRUST_* variables are not set in .env or the environment ---
 FALLBACK_DOMAIN = "yourtenant.my.onetrust.com"
-FALLBACK_API_KEY = "paste-your-api-key-here"
+FALLBACK_CLIENT_ID = "paste-your-client-id-here"
+FALLBACK_CLIENT_SECRET = "paste-your-client-secret-here"
 
 REQUEST_DELAY = 0.5   # seconds between role detail requests
 PAGE_SIZE = 100       # roles per page when listing
@@ -38,9 +39,31 @@ def load_env_file(path):
 
 load_env_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 DOMAIN = (os.getenv("ONETRUST_DOMAIN") or FALLBACK_DOMAIN).replace("https://", "").strip("/")
-API_KEY = os.getenv("ONETRUST_API_KEY") or FALLBACK_API_KEY
+CLIENT_ID = os.getenv("ONETRUST_CLIENT_ID") or FALLBACK_CLIENT_ID
+CLIENT_SECRET = os.getenv("ONETRUST_CLIENT_SECRET") or FALLBACK_CLIENT_SECRET
+TOKEN_URL = f"https://{DOMAIN}/api/access/v1/oauth/token"
 BASE_URL = f"https://{DOMAIN}/api/v2/useraccesslevels"
-HEADERS = {"ApiKey": API_KEY, "Accept": "application/json"}
+HEADERS = {"Accept": "application/json"}  # Authorization is added once the token is fetched
+
+
+def get_token():
+    """Exchange the client ID/secret for an OAuth bearer token (client_credentials grant). None on failure."""
+    body = urllib.parse.urlencode({
+        "grant_type": "client_credentials",
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+    }).encode()
+    req = urllib.request.Request(TOKEN_URL, data=body, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            return json.loads(resp.read().decode("utf-8"))["access_token"]
+    except urllib.error.HTTPError as e:
+        print(f"[AUTH ERROR] {TOKEN_URL}: HTTP {e.code} {e.reason}: {e.read().decode('utf-8', 'replace')[:300]}")
+    except (urllib.error.URLError, OSError) as e:
+        print(f"[AUTH ERROR] {TOKEN_URL}: {getattr(e, 'reason', e)}")
+    except (ValueError, KeyError):
+        print(f"[AUTH ERROR] {TOKEN_URL}: response had no access_token")
+    return None
 
 
 def get_json(url, params=None):
@@ -90,8 +113,16 @@ def fetch_role_list():
 
 
 def main():
-    if DOMAIN == FALLBACK_DOMAIN or API_KEY == FALLBACK_API_KEY:
-        sys.exit("[CONFIG] Set ONETRUST_DOMAIN and ONETRUST_API_KEY in .env or fill in the fallbacks at the top of the script.")
+    if FALLBACK_DOMAIN == DOMAIN or FALLBACK_CLIENT_ID == CLIENT_ID or FALLBACK_CLIENT_SECRET == CLIENT_SECRET:
+        sys.exit("[CONFIG] Set ONETRUST_DOMAIN, ONETRUST_CLIENT_ID and ONETRUST_CLIENT_SECRET in .env "
+                 "or fill in the fallbacks at the top of the script.")
+
+    print("Requesting access token ...")
+    token = get_token()
+    if not token:
+        sys.exit("Could not get an access token. Check the domain, client ID and client secret.")
+    # shortcut: token is fetched once; if exports ever outlast its lifetime (~1h), refresh on 401
+    HEADERS["Authorization"] = f"Bearer {token}"
 
     print(f"Fetching role list from {BASE_URL} ...")
     roles = fetch_role_list()
